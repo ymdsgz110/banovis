@@ -2756,7 +2756,7 @@ document
 let editId = null; 
 
 // ===============================
-// 画面描画
+// 🔹 漢字テスト管理画面
 // ===============================
 function renderKanjiSystem() {
   document.getElementById("content").innerHTML = `
@@ -2773,7 +2773,7 @@ function renderKanjiSystem() {
           <select id="kanji-class" style="${selectStyle()}">
             <option>Dパーフェクト</option>
             <option>Dファイナル</option>
-　　　　　　<option>Haga's Selection</option>
+            <option>Haga's Selection</option>
             <option>漢字の仕上げ</option>
           </select>
 
@@ -2785,11 +2785,23 @@ function renderKanjiSystem() {
           </select>
         </div>
 
-        <input id="kanji-question" placeholder="問題"
-          style="${inputStyle()}">
+        <!-- 問題-->
+<input id="kanji-question" placeholder="問題"
+  style="width:100%;
+         padding:14px;
+         margin-bottom:20px;
+         border-radius:16px;
+         border:1px solid #ddd;
+         font-size:15px;">
 
-        <input id="kanji-answer" placeholder="正解漢字"
-          style="${inputStyle()}">
+<!-- 正解漢字-->
+<input id="kanji-answer" placeholder="正解漢字"
+  style="width:100%;
+         padding:14px;
+         margin-bottom:15px;
+         border-radius:16px;
+         border:1px solid #ddd;
+         font-size:15px;">
 
         <button id="save-btn" style="${primaryButton()}">
           保存
@@ -2800,7 +2812,20 @@ function renderKanjiSystem() {
       <div style="background:#ffffff;padding:30px;border-radius:20px;
                   box-shadow:0 10px 30px rgba(0,0,0,0.06);">
         <h3 style="margin-bottom:20px;">問題一覧</h3>
+
         <button id="reload-btn" style="${secondaryButton()}">更新</button>
+
+        <!-- 検索ボックス追加 -->
+        <input id="search-keyword"
+          placeholder="問題または答えで検索"
+          style="width:100%;padding:12px;margin-top:15px;
+                 border-radius:12px;border:1px solid #ddd;">
+
+        <button id="search-btn"
+          style="${secondaryButton()}; margin-top:10px;">
+          検索
+        </button>
+
         <div id="kanji-list" style="margin-top:25px;"></div>
       </div>
 
@@ -2815,11 +2840,14 @@ function renderKanjiSystem() {
     .getElementById("reload-btn")
     .addEventListener("click", loadKanjiQuestions);
 
-  loadKanjiQuestions();
+  document
+    .getElementById("search-btn")
+    .addEventListener("click", loadKanjiQuestions);
 }
 
+
 // ===============================
-// 保存（追加 / 更新）
+// 🔹 保存（追加 / 更新）
 // ===============================
 async function saveKanjiQuestion() {
   const className = document.getElementById("kanji-class").value;
@@ -2833,43 +2861,81 @@ async function saveKanjiQuestion() {
   }
 
   if (editId) {
-    // 🔹 更新
     await updateDoc(doc(db, "kanjiQuestions", editId), {
       class: className,
-      page: page,
-      question: question,
-      answer: answer
+      page,
+      question,
+      answer
     });
-
     alert("更新しました");
     editId = null;
-
   } else {
-    // 🔹 新規追加
     await addDoc(collection(db, "kanjiQuestions"), {
       class: className,
-      page: page,
-      question: question,
-      answer: answer,
+      page,
+      question,
+      answer,
       createdAt: serverTimestamp()
     });
-
     alert("保存しました");
   }
 
-  clearForm();   // ← 完全初期化
+  clearForm();
   loadKanjiQuestions();
 }
 
 // ===============================
-// 一覧表示
+// 一覧表示（検索専用）
 // ===============================
 async function loadKanjiQuestions() {
-  const snapshot = await getDocs(collection(db, "kanjiQuestions"));
+
+  const keyword = document
+    .getElementById("search-keyword")?.value
+    ?.trim();
+
   const list = document.getElementById("kanji-list");
   list.innerHTML = "";
 
-  snapshot.forEach(docSnap => {
+  if (!keyword) {
+    list.innerHTML = "<p>キーワードを入力してください。</p>";
+    return;
+  }
+
+  // 🔹 問題で検索
+  const q1 = query(
+    collection(db, "kanjiQuestions"),
+    where("question", ">=", keyword),
+    where("question", "<=", keyword + "\uf8ff")
+  );
+
+  // 🔹 答えで検索
+  const q2 = query(
+    collection(db, "kanjiQuestions"),
+    where("answer", ">=", keyword),
+    where("answer", "<=", keyword + "\uf8ff")
+  );
+
+  const [snap1, snap2] = await Promise.all([
+    getDocs(q1),
+    getDocs(q2)
+  ]);
+
+  const docsMap = new Map();
+
+  snap1.forEach(docSnap => {
+    docsMap.set(docSnap.id, docSnap);
+  });
+
+  snap2.forEach(docSnap => {
+    docsMap.set(docSnap.id, docSnap);
+  });
+
+  if (docsMap.size === 0) {
+    list.innerHTML = "<p>該当する問題がありません。</p>";
+    return;
+  }
+
+  docsMap.forEach(docSnap => {
     const data = docSnap.data();
 
     const card = document.createElement("div");
@@ -2886,7 +2952,11 @@ async function loadKanjiQuestions() {
       ${data.question} → <b>${data.answer}</b>
       <div style="margin-top:10px;">
         <button class="edit-btn" style="${secondaryButton()}">編集</button>
-        <button class="delete-btn" style="background:#ef4444;color:white;border:none;padding:10px 18px;border-radius:12px;cursor:pointer;">削除</button>
+        <button class="delete-btn"
+          style="background:#ef4444;color:white;border:none;
+                 padding:10px 18px;border-radius:12px;cursor:pointer;">
+          削除
+        </button>
       </div>
     `;
 
@@ -2900,17 +2970,16 @@ async function loadKanjiQuestions() {
   });
 }
 
+
 // ===============================
 // 🔹 編集開始
 // ===============================
 function startEdit(id, data) {
   editId = id;
-
   document.getElementById("kanji-class").value = data.class;
   document.getElementById("kanji-page").value = data.page;
   document.getElementById("kanji-question").value = data.question;
   document.getElementById("kanji-answer").value = data.answer;
-
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -2918,12 +2987,13 @@ function startEdit(id, data) {
 // 🔹 削除
 // ===============================
 async function deleteKanji(id) {
+  if (!confirm("削除しますか？")) return;
   await deleteDoc(doc(db, "kanjiQuestions", id));
   loadKanjiQuestions();
 }
 
 // ===============================
-// 🔹 フォーム完全初期化
+// 🔹 フォーム初期化
 // ===============================
 function clearForm() {
   document.getElementById("kanji-class").selectedIndex = 0;
@@ -2949,25 +3019,23 @@ function selectStyle() {
 
 function inputStyle() {
   return `
-    width:100%;
     padding:14px;
-    margin-bottom:15px;
     border-radius:16px;
     border:1px solid #ddd;
     font-size:15px;
+    flex:1;
   `;
 }
 
 function primaryButton() {
   return `
-    background:#3730a3; /* ← 暗めに変更 */
+    background:#3730a3;
     color:white;
     border:none;
     padding:12px 22px;
     border-radius:14px;
     font-size:15px;
     cursor:pointer;
-    transition:0.2s;
   `;
 }
 
@@ -2978,7 +3046,6 @@ function secondaryButton() {
     padding:10px 18px;
     border-radius:12px;
     cursor:pointer;
-    margin-right:10px;
   `;
 }
 

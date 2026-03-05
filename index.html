@@ -2386,8 +2386,8 @@ if (excludeMastered) {
 
   let allowedLevels = [];
   if (selectedLevel === "A") allowedLevels = ["A"];
-  if (selectedLevel === "B") allowedLevels = ["A", "B"];
-  if (selectedLevel === "C") allowedLevels = ["A", "B", "C"];
+  if (selectedLevel === "B") allowedLevels = ["B"];
+  if (selectedLevel === "C") allowedLevels = ["C"];
 
   const q = query(
     collection(db, "ichimon_questions"),
@@ -6778,10 +6778,6 @@ function renderGrammarResult(score, elapsedSec, answersRecord){
 
     // ===== 初表示はログイン画面（何も変更しない） =====
     // end of module
-
-  
-    // ★★ 追加ここまで ★★
-
     /* ============== ここから新規追加: ホーム画面とお知らせ機能 ============== */
     /* 追加ポリシー:
        - ひな形A1 の既存コードは一切変更していません（上書き、削除なし）。
@@ -7648,7 +7644,5 @@ window.addEventListener("beforeunload", function (event) {
 });
 
   </script>
-
-
 </body>
 </html>

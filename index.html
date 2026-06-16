@@ -242,7 +242,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
     import {
-      getFirestore, collection, getDocs, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, serverTimestamp, query, where, orderBy
+      getFirestore, collection, getDocs, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, serverTimestamp, query, where, orderBy, limit
     } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
     import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-storage.js";
 
@@ -1559,7 +1559,6 @@ async function submitActivity(activityId, activity) {
 /* ===========================
    社会：問題管理（年号テスト）機能
    =========================== */
-
 // --- ヘルパ: エスケープ（表示用） ---
 function escHtml(s){
   if(s === null || s === undefined) return '';
@@ -1610,6 +1609,22 @@ function renderSocialsAdmin(){
             <button class="btn-plain" disabled>一覧（未実装）</button>
           </div>
         </div>
+
+<!-- 日本史H -->
+<div class="card" style="flex:1;min-width:260px;">
+  <h3>日本史H 一問一答</h3>
+  <p>作成 / 編集 / 一覧</p>
+
+  <div style="display:flex;gap:8px;margin-top:8px;">
+    <button id="btn-h-ichimon-create" class="btn-plain btn-primary">
+      新規作成
+    </button>
+
+    <button id="btn-h-ichimon-list" class="btn-plain">
+      一覧・編集
+    </button>
+  </div>
+</div>
       </div>
 
       <div id="social-admin-area" style="margin-top:16px;"></div>
@@ -1624,6 +1639,13 @@ function renderSocialsAdmin(){
   // 一問一答
   document.getElementById('btn-ichimon-create').addEventListener('click', renderIchimonCreateForm);
   document.getElementById('btn-ichimon-list').addEventListener('click', renderIchimonList);
+
+document
+  .getElementById('btn-h-ichimon-create')
+  .addEventListener('click', renderHistoryIchimonCreateForm);
+document
+  .getElementById('btn-h-ichimon-list')
+  .addEventListener('click', renderHistoryIchimonList);
 }
 
 
@@ -1947,6 +1969,1713 @@ function renderIchimonCreateForm(editData) {
     }
   });
 }
+
+
+/// ======== 日本史H　一問一答　問題作成 ======= ///
+function renderHistoryIchimonCreateForm(editData) {
+  const area = document.getElementById("social-admin-area");
+
+  const isEdit = editData && editData.id;
+  const data = editData?.data || {};
+
+  area.innerHTML = `
+    <div class="card">
+      <h3>日本史H 一問一答 — ${isEdit ? '問題編集' : '問題作成'}</h3>
+
+      <p style="color:#666;margin-bottom:12px;">
+        問題文・答え（複数可）・別解・解説・スコア・クラス・レベルを入力して保存します。
+      </p>
+
+      <label>クラス</label><br>
+      <input
+        id="history-ichimon-class"
+        type="text"
+        style="width:200px;margin-bottom:12px;"
+        value="${data.class || ''}"
+      >
+
+      <label>レベル</label><br>
+      <select
+        id="history-ichimon-level"
+        style="width:120px;margin-bottom:12px;"
+      >
+        <option value="A" ${data.level === 'A' ? 'selected' : ''}>A</option>
+        <option value="B" ${data.level === 'B' ? 'selected' : ''}>B</option>
+        <option value="C" ${data.level === 'C' ? 'selected' : ''}>C</option>
+      </select>
+
+      <label>問題文</label><br>
+      <textarea
+        id="history-ichimon-question"
+        style="width:100%;height:100px;margin-bottom:12px;"
+      >${data.question || ''}</textarea>
+
+      <label>答え（メインと別解を追加可能）</label>
+      <div id="history-ichimon-answers" style="margin-bottom:12px;"></div>
+
+      <button
+        id="add-history-answer"
+        class="btn-plain"
+        style="margin-bottom:12px;"
+      >
+        ＋ 答えを追加
+      </button>
+
+      <label>解説</label><br>
+      <textarea
+        id="history-ichimon-explanation"
+        style="width:100%;height:120px;margin-bottom:12px;"
+      >${data.explanation || ''}</textarea>
+
+      <label>スコア</label><br>
+      <input
+        id="history-ichimon-score"
+        type="number"
+        style="width:100px;margin-bottom:16px;"
+        value="${data.score || 1}"
+      >
+
+      <div style="display:flex;gap:8px;">
+        <button
+          id="save-history-ichimon"
+          class="btn-plain btn-primary"
+        >
+          ${isEdit ? '更新' : '保存'}
+        </button>
+
+        <button
+          id="back-to-socials"
+          class="btn-plain"
+        >
+          戻る
+        </button>
+      </div>
+    </div>
+  `;
+
+  const answersDiv =
+    document.getElementById("history-ichimon-answers");
+
+  if (data.answers?.length) {
+    data.answers.forEach(ansObj =>
+      addAnswerField(
+        ansObj.main,
+        ansObj.alternatives || []
+      )
+    );
+  } else {
+    addAnswerField();
+  }
+
+  document
+    .getElementById("add-history-answer")
+    .addEventListener("click", () => addAnswerField());
+
+  document
+    .getElementById("back-to-socials")
+    .addEventListener("click", renderSocialsAdmin);
+
+  function addAnswerField(
+    mainValue = "",
+    altValues = []
+  ) {
+
+    const idx = answersDiv.children.length + 1;
+
+    const wrapper = document.createElement("div");
+
+    wrapper.style.marginBottom = "12px";
+
+    wrapper.innerHTML = `
+      <label>答え ${idx}：</label><br>
+
+      <input
+        type="text"
+        class="ichimon-main-answer"
+        placeholder="メイン答え"
+        style="width:60%;"
+        value="${mainValue}"
+      >
+
+      <button class="btn-plain btn-delete-answer">
+        削除
+      </button>
+
+      <div
+        class="alt-answers"
+        style="margin-top:4px;margin-left:16px;"
+      ></div>
+
+      <button class="btn-plain btn-add-alt">
+        ＋ 別解を追加
+      </button>
+    `;
+
+    answersDiv.appendChild(wrapper);
+
+    const altDiv =
+      wrapper.querySelector(".alt-answers");
+
+    altValues.forEach(v => addAltField(v));
+
+    wrapper
+      .querySelector(".btn-delete-answer")
+      .addEventListener("click", () => {
+
+        wrapper.remove();
+
+        Array.from(answersDiv.children)
+          .forEach((c, i) => {
+            c.querySelector("label").innerText =
+              "答え " + (i + 1) + "：";
+          });
+      });
+
+    wrapper
+      .querySelector(".btn-add-alt")
+      .addEventListener("click", () => addAltField());
+
+    function addAltField(value = "") {
+
+      const altWrapper =
+        document.createElement("div");
+
+      altWrapper.style.marginBottom = "4px";
+
+      altWrapper.innerHTML = `
+        <input
+          type="text"
+          class="ichimon-alt-answer"
+          placeholder="別解"
+          style="width:50%;"
+          value="${value}"
+        >
+
+        <button class="btn-plain btn-delete-alt">
+          削除
+        </button>
+      `;
+
+      altDiv.appendChild(altWrapper);
+
+      altWrapper
+        .querySelector(".btn-delete-alt")
+        .addEventListener(
+          "click",
+          () => altWrapper.remove()
+        );
+    }
+  }
+
+  document
+    .getElementById("save-history-ichimon")
+    .addEventListener("click", async () => {
+
+      const ichimonClass =
+        document.getElementById(
+          "history-ichimon-class"
+        ).value.trim();
+
+      const level =
+        document.getElementById(
+          "history-ichimon-level"
+        ).value;
+
+      const question =
+        document.getElementById(
+          "history-ichimon-question"
+        ).value.trim();
+
+      const explanation =
+        document.getElementById(
+          "history-ichimon-explanation"
+        ).value.trim();
+
+      const score = Number(
+        document.getElementById(
+          "history-ichimon-score"
+        ).value
+      );
+
+      const answers =
+        Array.from(answersDiv.children)
+          .map(wrapper => {
+
+            const main =
+              wrapper
+                .querySelector(".ichimon-main-answer")
+                ?.value.trim();
+
+            const alternatives =
+              Array.from(
+                wrapper.querySelectorAll(
+                  ".ichimon-alt-answer"
+                )
+              )
+              .map(a => a.value.trim())
+              .filter(a => a);
+
+            return main
+              ? { main, alternatives }
+              : null;
+
+          })
+          .filter(a => a);
+
+      if (!question || answers.length === 0) {
+        alert("問題文と答えを入力してください。");
+        return;
+      }
+
+      try {
+
+        if (isEdit) {
+
+          await updateDoc(
+            doc(
+              db,
+              "history_ichimon_questions",
+              editData.id
+            ),
+            {
+              class: ichimonClass || "",
+              level,
+              question,
+              answers,
+              explanation,
+              score
+            }
+          );
+
+          alert("更新しました！");
+
+        } else {
+
+          await addDoc(
+            collection(
+              db,
+              "history_ichimon_questions"
+            ),
+            {
+              class: ichimonClass || "",
+              level,
+              question,
+              answers,
+              explanation,
+              score,
+              createdAt: serverTimestamp()
+            }
+          );
+
+          alert("保存しました！");
+        }
+
+        renderSocialsAdmin();
+
+      } catch (err) {
+
+        console.error(err);
+        alert("保存に失敗しました。");
+      }
+    });
+}
+
+
+// ==========================
+// 日本史H：一覧・編集画面
+// ==========================
+async function renderHistoryIchimonList() {
+  const area = document.getElementById('social-admin-area');
+
+  area.innerHTML = `
+    <div class="card">
+      <h3>日本史H 一問一答 問題一覧・編集</h3>
+
+      <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
+        <input
+          id="history-ichimon-search"
+          placeholder="キーワード検索"
+          style="flex:1;padding:8px;"
+        >
+
+        <button
+          id="history-ichimon-search-btn"
+          class="btn-plain btn-primary"
+        >
+          検索
+        </button>
+
+        <button
+          id="history-ichimon-refresh-btn"
+          class="btn-plain"
+        >
+          最新10件を表示
+        </button>
+
+        <button
+          id="history-ichimon-new-btn"
+          class="btn-plain"
+          style="margin-left:8px;"
+        >
+          新規作成
+        </button>
+      </div>
+
+      <div id="history-ichimon-list" style="margin-top:12px;"></div>
+    </div>
+  `;
+
+  document
+    .getElementById('history-ichimon-new-btn')
+    .addEventListener('click', () => renderHistoryIchimonCreateForm());
+
+  document
+    .getElementById('history-ichimon-refresh-btn')
+    .addEventListener('click', () => {
+      loadAndShowHistoryIchimonQuestions();
+    });
+
+  document
+    .getElementById('history-ichimon-search-btn')
+    .addEventListener('click', async () => {
+
+      const keyword =
+        document.getElementById('history-ichimon-search')
+        .value
+        .trim();
+
+      if (!keyword) {
+
+        const ok = confirm(
+          '検索キーワードが入力されていません。\n全件読み込みますか？'
+        );
+
+        if (!ok) return;
+
+        await loadAndShowHistoryIchimonQuestions('__ALL__');
+        return;
+      }
+
+      await loadAndShowHistoryIchimonQuestions(keyword);
+    });
+
+  // 初期表示は最新10件
+  await loadAndShowHistoryIchimonQuestions();
+}
+
+
+// ==========================
+// データ取得・表示
+// ==========================
+async function loadAndShowHistoryIchimonQuestions(keyword = '') {
+
+  const listEl =
+    document.getElementById('history-ichimon-list');
+
+  listEl.innerHTML =
+    '<div style="color:#666">読み込み中...</div>';
+
+  try {
+
+    let qSnap;
+
+    // 全件
+    if (keyword === '__ALL__') {
+
+      qSnap = await getDocs(
+        collection(db, 'history_ichimon_questions')
+      );
+
+    // 検索
+    } else if (keyword) {
+
+      qSnap = await getDocs(
+        collection(db, 'history_ichimon_questions')
+      );
+
+    // 最新10件
+    } else {
+
+      const qRef = query(
+        collection(db, 'history_ichimon_questions'),
+        orderBy('createdAt', 'desc'),
+        limit(10)
+      );
+
+      qSnap = await getDocs(qRef);
+    }
+
+    const docs = qSnap.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+
+    const filtered = keyword && keyword !== '__ALL__'
+      ? docs.filter(d => {
+
+          const kw = keyword.toLowerCase();
+
+          const qMatch =
+            (d.question || '')
+            .toLowerCase()
+            .includes(kw);
+
+          const eMatch =
+            (d.explanation || '')
+            .toLowerCase()
+            .includes(kw);
+
+          const aMatch =
+            (d.answers || []).some(a => {
+
+              if (typeof a === 'string') {
+                return a.toLowerCase().includes(kw);
+              }
+
+              const main =
+                (a.main || '').toLowerCase();
+
+              const alts =
+                Array.isArray(a.alternatives)
+                  ? a.alternatives
+                  : [];
+
+              return (
+                main.includes(kw) ||
+                alts.some(x =>
+                  x.toLowerCase().includes(kw)
+                )
+              );
+            });
+
+          return qMatch || aMatch || eMatch;
+        })
+      : docs;
+
+
+    if (filtered.length === 0) {
+
+      listEl.innerHTML = `
+        <div
+          style="
+            color:#666;
+            padding:12px;
+            border:1px dashed #eef3f5;
+            border-radius:8px;
+          "
+        >
+          該当する問題はありません。
+        </div>
+      `;
+
+      return;
+    }
+
+
+    const displayAnswer = (a) => {
+
+      if (!a) return '';
+
+      if (typeof a === 'string') {
+        return escHtml(a);
+      }
+
+      const main = a.main || '';
+
+      const alts =
+        Array.isArray(a.alternatives)
+          ? a.alternatives
+          : [];
+
+      return escHtml(
+        main +
+        (
+          alts.length
+            ? ' (' + alts.join(', ') + ')'
+            : ''
+        )
+      );
+    };
+
+
+    let html =
+      '<div style="display:flex;flex-direction:column;gap:8px;">';
+
+    filtered.forEach(item => {
+
+      html += `
+        <div
+          style="
+            display:flex;
+            justify-content:space-between;
+            gap:12px;
+            align-items:flex-start;
+            padding:12px;
+            border:1px solid #eef3f5;
+            border-radius:8px;
+            background:#fff;
+          "
+        >
+
+          <div style="flex:1;">
+
+            <div
+              style="
+                font-weight:700;
+                margin-bottom:6px;
+              "
+            >
+              ${escHtml(item.question)}
+            </div>
+
+            <div
+              style="
+                font-size:14px;
+                color:#666;
+                margin-bottom:2px;
+              "
+            >
+              答え：
+              <strong>
+                ${(item.answers || [])
+                  .map(displayAnswer)
+                  .join(', ')}
+              </strong>
+            </div>
+
+            <div
+              style="
+                font-size:14px;
+                color:#666;
+                margin-bottom:2px;
+              "
+            >
+              解説：
+              ${escHtml(item.explanation || '-')}
+            </div>
+
+            <div
+              style="
+                font-size:14px;
+                color:#666;
+                margin-bottom:2px;
+              "
+            >
+              配点：
+              ${escHtml(String(item.score || 0))}
+              ・
+              レベル：
+              ${escHtml(item.level || '-')}
+            </div>
+
+            <div
+              style="
+                font-size:13px;
+                color:#666;
+                margin-bottom:2px;
+              "
+            >
+              クラス：
+              <strong>
+                ${escHtml(item.class || '-')}
+              </strong>
+            </div>
+
+            <div
+              style="
+                font-size:12px;
+                color:#999;
+                margin-top:6px;
+              "
+            >
+              作成者：
+              ${escHtml(item.createdBy || '-')}
+
+              ${item.createdAt
+                ? ' • ' +
+                  new Date(
+                    item.createdAt.seconds
+                      ? item.createdAt.seconds * 1000
+                      : item.createdAt
+                  ).toLocaleString()
+                : ''
+              }
+            </div>
+
+          </div>
+
+          <div
+            style="
+              display:flex;
+              flex-direction:column;
+              gap:6px;
+            "
+          >
+            <button
+              class="btn-plain btn-edit-history-ichimon"
+              data-id="${item.id}"
+            >
+              編集
+            </button>
+
+            <button
+              class="btn-plain btn-danger btn-del-history-ichimon"
+              data-id="${item.id}"
+            >
+              削除
+            </button>
+          </div>
+
+        </div>
+      `;
+    });
+
+    html += '</div>';
+
+    listEl.innerHTML = html;
+
+
+    // 編集
+    listEl
+      .querySelectorAll('.btn-edit-history-ichimon')
+      .forEach(btn => {
+
+        btn.addEventListener('click', async e => {
+
+          const id =
+            e.currentTarget.dataset.id;
+
+          const docSnap =
+            await getDoc(
+              doc(
+                db,
+                'history_ichimon_questions',
+                id
+              )
+            );
+
+          if (!docSnap.exists()) {
+            alert('問題が見つかりません');
+            return;
+          }
+
+          renderHistoryIchimonCreateForm({
+            id,
+            data: docSnap.data()
+          });
+        });
+      });
+
+
+    // 削除
+    listEl
+      .querySelectorAll('.btn-del-history-ichimon')
+      .forEach(btn => {
+
+        btn.addEventListener('click', async e => {
+
+          const id =
+            e.currentTarget.dataset.id;
+
+          if (
+            !confirm(
+              'この問題を削除しますか？'
+            )
+          ) {
+            return;
+          }
+
+          try {
+
+            await deleteDoc(
+              doc(
+                db,
+                'history_ichimon_questions',
+                id
+              )
+            );
+
+            alert('削除しました');
+
+            await loadAndShowHistoryIchimonQuestions();
+
+          } catch (err) {
+
+            console.error(err);
+
+            alert(
+              '削除に失敗しました: ' +
+              (err.message || err)
+            );
+          }
+        });
+      });
+
+  } catch (err) {
+
+    console.error(err);
+
+    listEl.innerHTML = `
+      <div style="color:#c00">
+        取得に失敗しました:
+        ${escHtml(err.message || err)}
+      </div>
+    `;
+  }
+}
+
+
+
+// ==========================
+// 日本史H 一問一答 範囲設定画面
+// ==========================
+function renderHighIchimonSetup() {
+
+  const area = document.getElementById("content");
+
+  const levels = [
+    { label: "★★★", value: "A" },
+    { label: "★★", value: "B" },
+    { label: "★", value: "C" }
+  ];
+
+  const counts = [10, 20, 30,"全問"];
+
+  const historyRanges = [
+    "原始",
+    "古墳",
+    "飛鳥",
+    "奈良",
+    "平安",
+    "鎌倉",
+    "室町",
+    "安土桃山",
+    "江戸",
+    "明治",
+    "大正",
+    "昭和",
+    "平成"
+  ];
+
+  area.innerHTML = `
+    <div class="card" style="max-width:900px;margin:40px auto;padding:32px;text-align:center;">
+
+      <h2 style="margin-bottom:32px;">
+        日本史H 一問一答 範囲・レベル設定
+      </h2>
+
+      <div id="mastery-bars" style="margin-bottom:24px;"></div>
+
+      <h3 style="text-align:left;">
+        出題範囲を選択してください
+      </h3>
+
+      <div
+        id="range-selection"
+        style="
+          display:flex;
+          flex-wrap:wrap;
+          gap:16px;
+          justify-content:center;
+          margin:24px 0;
+        "
+      ></div>
+
+      <h3 style="text-align:left;">
+        レベルを選択してください
+      </h3>
+
+      <div
+        id="level-selection"
+        style="
+          display:flex;
+          gap:16px;
+          justify-content:center;
+          margin:24px 0;
+        "
+      ></div>
+
+      <div
+        style="
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+        "
+      >
+        <h3 style="margin:0;">
+          出題数を選択してください
+        </h3>
+
+        <label
+          style="
+            font-size:14px;
+            cursor:pointer;
+            display:flex;
+            align-items:center;
+            gap:6px;
+          "
+        >
+          <input type="checkbox" id="exclude-mastered">
+          習得済みを除外する
+        </label>
+      </div>
+
+      <div
+        id="count-selection"
+        style="
+          display:flex;
+          gap:16px;
+          justify-content:center;
+          margin:24px 0;
+        "
+      ></div>
+
+      <div style="margin-top:32px;">
+
+        <button
+          id="start-history-ichimon-test"
+          class="btn-plain btn-primary"
+          style="
+            padding:12px 28px;
+            font-size:18px;
+            background:#c7b0f5;
+            border-color:#c7b0f5;
+          "
+        >
+          テストを開始する
+        </button>
+
+        <button
+          id="history-ichimon-back"
+          class="btn-plain"
+          style="
+            padding:12px 28px;
+            font-size:18px;
+          "
+        >
+          戻る
+        </button>
+
+      </div>
+    </div>
+  `;
+
+  const rangeDiv =
+    document.getElementById("range-selection");
+
+  const levelDiv =
+    document.getElementById("level-selection");
+
+  const countDiv =
+    document.getElementById("count-selection");
+
+  // ==========================
+  // 範囲カード
+  // ==========================
+  historyRanges.forEach(range => {
+
+    const card = document.createElement("div");
+
+    card.innerText = range;
+
+    Object.assign(card.style, {
+      padding: "16px 0",
+      border: "2px solid #ccc",
+      borderRadius: "12px",
+      cursor: "pointer",
+      fontSize: "18px",
+      width: "240px",
+      textAlign: "center"
+    });
+
+    card.addEventListener("click", () => {
+
+      card.classList.toggle("selected");
+
+      if (card.classList.contains("selected")) {
+
+        card.style.background = "#efe8ff";
+        card.style.borderColor = "#c7b0f5";
+
+      } else {
+
+        card.style.background = "white";
+        card.style.borderColor = "#ccc";
+      }
+    });
+
+    rangeDiv.appendChild(card);
+  });
+
+  // ==========================
+  // レベルカード
+  // ==========================
+  levels.forEach(level => {
+
+    const card = document.createElement("div");
+
+    card.innerText = level.label;
+
+    card.dataset.level = level.value;
+
+    Object.assign(card.style, {
+      padding: "16px 44px",
+      border: "2px solid #ccc",
+      borderRadius: "12px",
+      cursor: "pointer",
+      fontSize: "20px"
+    });
+
+    card.addEventListener("click", () => {
+
+      Array.from(levelDiv.children).forEach(c => {
+
+        c.classList.remove("selected");
+        c.style.background = "white";
+        c.style.borderColor = "#ccc";
+      });
+
+      card.classList.add("selected");
+      card.style.background = "#efe8ff";
+      card.style.borderColor = "#c7b0f5";
+    });
+
+    levelDiv.appendChild(card);
+  });
+
+  // ==========================
+  // 出題数カード
+  // ==========================
+counts.forEach(count => {
+
+  const card = document.createElement("div");
+
+  card.innerText =
+    count === "全問"
+      ? "全問"
+      : count + "問";
+
+  Object.assign(card.style, {
+    padding: "16px 44px",
+    border: "2px solid #ccc",
+    borderRadius: "12px",
+    cursor: "pointer",
+    fontSize: "20px"
+  });
+
+  card.addEventListener("click", () => {
+
+    Array.from(countDiv.children).forEach(c => {
+
+      c.classList.remove("selected");
+      c.style.background = "white";
+      c.style.borderColor = "#ccc";
+    });
+
+    card.classList.add("selected");
+    card.style.background = "#efe8ff";
+    card.style.borderColor = "#c7b0f5";
+  });
+
+  countDiv.appendChild(card);
+});
+
+  // ==========================
+  // 戻る
+  // ==========================
+  document
+    .getElementById("history-ichimon-back")
+    .addEventListener("click", renderTestMenu);
+
+  // ==========================
+  // テスト開始
+  // ==========================
+  document
+    .getElementById("start-history-ichimon-test")
+    .addEventListener("click", () => {
+
+      const excludeMastered =
+        document.getElementById("exclude-mastered").checked;
+
+      const selectedRanges =
+        Array.from(rangeDiv.children)
+          .filter(card =>
+            card.classList.contains("selected")
+          )
+          .map(card => card.innerText);
+
+      const selectedLevel =
+        Array.from(levelDiv.children)
+          .find(card =>
+            card.classList.contains("selected")
+          )
+          ?.dataset.level;
+
+      const selectedCountText =
+        Array.from(countDiv.children)
+          .find(card =>
+            card.classList.contains("selected")
+          )
+          ?.innerText;
+
+      if (selectedRanges.length === 0) {
+        alert("出題範囲を1つ以上選択してください。");
+        return;
+      }
+
+      if (!selectedLevel) {
+        alert("レベルを選択してください。");
+        return;
+      }
+
+      if (!selectedCountText) {
+        alert("出題数を選択してください。");
+        return;
+      }
+
+     const countNumber =
+  selectedCountText === "全問"
+    ? -1
+    : Number(
+        selectedCountText.replace("問", "")
+      );
+
+startHistoryIchimonTest(
+  selectedRanges,
+  selectedLevel,
+  countNumber,
+  excludeMastered
+);    
+});
+}
+
+
+
+
+// ============================================
+// 日本史H 一問一答
+// グローバル
+// ============================================
+let currentHistoryIchimonTest = null;
+
+
+// ============================================
+// 問題取得
+// ============================================
+async function loadHistoryIchimonQuestions(
+  selectedRanges,
+  selectedLevel,
+  limitCount,
+  excludeMastered
+) {
+
+  let masteredIds = new Set();
+
+  // 習得済み除外
+  if (excludeMastered) {
+
+    const uid =
+      currentUser
+        ? currentUser.id
+        : "guest";
+
+    const snap = await getDocs(
+      query(
+        collection(
+          db,
+          "history_ichimon_progress"
+        ),
+        where("uid", "==", uid),
+        where("mastered", "==", true)
+      )
+    );
+
+    snap.forEach(docSnap => {
+      masteredIds.add(
+        docSnap.data().questionId
+      );
+    });
+  }
+
+  // Firestore取得
+  const qRef = query(
+    collection(
+      db,
+      "history_ichimon_questions"
+    ),
+    where(
+      "class",
+      "in",
+      selectedRanges
+    ),
+    where(
+      "level",
+      "==",
+      selectedLevel
+    )
+  );
+
+  const snapshot =
+    await getDocs(qRef);
+
+  let questions =
+    snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+  // 習得済み除外
+  if (excludeMastered) {
+
+    questions =
+      questions.filter(
+        q =>
+          !masteredIds.has(q.id)
+      );
+  }
+
+  // シャッフル
+  questions.sort(
+    () => Math.random() - 0.5
+  );
+
+  // 全問
+  if (limitCount === "ALL") {
+    return questions;
+  }
+
+  return questions.slice(
+    0,
+    limitCount
+  );
+}
+
+
+// ============================================
+// テスト開始
+// ============================================
+async function startHistoryIchimonTest(
+  selectedRanges,
+  selectedLevel,
+  questionCount,
+  excludeMastered
+) {
+
+  const questionList =
+    await loadHistoryIchimonQuestions(
+      selectedRanges,
+      selectedLevel,
+      questionCount,
+      excludeMastered
+    );
+
+  if (questionList.length === 0) {
+
+    alert(
+      "指定した範囲・レベルの問題がありません。"
+    );
+
+    return;
+  }
+
+  currentHistoryIchimonTest = {
+
+    questions:
+      questionList,
+
+    index: 0,
+
+    correct: 0,
+
+    userAnswers: []
+  };
+
+  renderHistoryIchimonTestQuestion();
+}
+
+// ======================================================
+// 問題表示
+// ======================================================
+function renderHistoryIchimonTestQuestion() {
+
+  const area =
+    document.getElementById("content");
+
+  const test =
+    currentHistoryIchimonTest;
+
+  const q =
+    test.questions[test.index];
+
+  let answerFields = "";
+
+  q.answers.forEach((_, i) => {
+
+    answerFields += `
+      <div style="margin-bottom:12px;">
+        <label>（${i + 1}）</label>
+
+        <input
+          id="history-answer-${i}"
+          class="input"
+          style="
+            width:80%;
+            height:40px;
+            margin-top:4px;
+            padding:6px 8px;
+            border-radius:12px;
+            border:2px solid #ccc;
+            font-size:16px;
+            outline:none;
+            box-shadow:none;
+            white-space:pre-wrap;
+          "
+        >
+      </div>
+    `;
+  });
+
+  area.innerHTML = `
+    <div
+      class="card"
+      style="
+        position:relative;
+        padding:32px;
+      "
+    >
+
+      <h2>
+        第 ${test.index + 1} 問 /
+        ${test.questions.length}
+      </h2>
+
+      <div
+        style="
+          margin-top:20px;
+          font-size:20px;
+          white-space:pre-wrap;
+        "
+      >
+        ${q.question}
+      </div>
+
+      <div
+        id="answer-area"
+        style="margin-top:24px;"
+      >
+        ${answerFields}
+      </div>
+
+      <div
+        style="
+          text-align:left;
+          margin-top:32px;
+        "
+      >
+        <button
+          id="history-ichimon-next"
+          class="btn-primary"
+          style="
+            padding:14px 36px;
+            font-size:18px;
+            border-radius:12px;
+          "
+        >
+          答え合わせ
+        </button>
+      </div>
+
+      <div
+        id="correct-answer"
+        style="
+          margin-top:12px;
+          color:red;
+          font-size:20px;
+          font-weight:bold;
+        "
+      ></div>
+
+      <div
+        id="popup-judge"
+        style="
+          position:absolute;
+          top:50%;
+          left:50%;
+          transform:translate(-50%, -50%);
+          font-size:120px;
+          font-weight:bold;
+          display:none;
+          pointer-events:none;
+          z-index:999;
+        "
+      ></div>
+
+    </div>
+  `;
+
+  document
+    .getElementById(
+      "history-ichimon-next"
+    )
+    .onclick =
+      checkHistoryIchimonAnswer;
+}
+
+
+
+// ======================================================
+// 答え合わせ
+// ======================================================
+function checkHistoryIchimonAnswer() {
+
+  const test =
+    currentHistoryIchimonTest;
+
+  const q =
+    test.questions[test.index];
+
+  let isAllCorrect = true;
+
+  const userAnsList = [];
+
+  q.answers.forEach((ansObj, i) => {
+
+    const val =
+      document
+        .getElementById(
+          `history-answer-${i}`
+        )
+        .value
+        .trim();
+
+    userAnsList.push(val);
+
+    let validAnswers = [];
+
+    if (typeof ansObj === "string") {
+
+      validAnswers = [ansObj];
+
+    } else {
+
+      validAnswers = [
+        ansObj.main,
+        ...(Array.isArray(
+          ansObj.alternatives
+        )
+          ? ansObj.alternatives
+          : [])
+      ];
+    }
+
+    const matched =
+      validAnswers.some(
+        a =>
+          a.toLowerCase()
+          === val.toLowerCase()
+      );
+
+    if (!matched) {
+      isAllCorrect = false;
+    }
+  });
+
+  const correctAnswerText =
+    q.answers.map(ansObj => {
+
+      if (
+        typeof ansObj === "string"
+      ) {
+        return ansObj;
+      }
+
+      const alts =
+        Array.isArray(
+          ansObj.alternatives
+        )
+          ? ansObj.alternatives
+          : [];
+
+      return (
+        ansObj.main +
+        (
+          alts.length
+            ? " (" +
+              alts.join(", ") +
+              ")"
+            : ""
+        )
+      );
+    });
+
+  test.userAnswers[
+    test.index
+  ] = {
+
+    question:
+      q.question,
+
+    explanation:
+      q.explanation || "",
+
+    userAnswer:
+      userAnsList,
+
+    correctAnswer:
+      correctAnswerText,
+
+    isCorrect:
+      isAllCorrect,
+
+    score:
+      isAllCorrect
+        ? (q.score || 0)
+        : 0
+  };
+
+  renderHistoryIchimonJudge();
+
+  document
+    .getElementById(
+      "history-ichimon-next"
+    )
+    .style.display = "none";
+}
+
+
+
+// ======================================================
+// ○×表示＋解説表示
+// ======================================================
+function renderHistoryIchimonJudge() {
+
+  const test =
+    currentHistoryIchimonTest;
+
+  const ua =
+    test.userAnswers[
+      test.index
+    ];
+
+  const popup =
+    document.getElementById(
+      "popup-judge"
+    );
+
+  const correctArea =
+    document.getElementById(
+      "correct-answer"
+    );
+
+  popup.innerText =
+    ua.isCorrect
+      ? "⭕"
+      : "❌";
+
+  popup.style.color =
+    ua.isCorrect
+      ? "green"
+      : "red";
+
+  popup.style.display =
+    "block";
+
+  popup.style.opacity = "1";
+
+  popup.style.transition =
+    "opacity 0.5s ease-out";
+
+  setTimeout(() => {
+
+    popup.style.opacity = "0";
+
+    setTimeout(
+      () =>
+        popup.style.display =
+          "none",
+      500
+    );
+
+  }, 1000);
+
+  correctArea.innerHTML = `
+
+    <div>
+      正解：
+      ${ua.correctAnswer.join(
+        " / "
+      )}
+    </div>
+
+    <div
+      style="
+        margin-top:16px;
+        color:#333;
+        font-size:16px;
+        font-weight:normal;
+        line-height:1.8;
+        white-space:pre-wrap;
+      "
+    >
+      <strong>
+        解説
+      </strong>
+      <br>
+
+      ${
+        ua.explanation ||
+        "解説はありません"
+      }
+    </div>
+
+  `;
+
+  if (ua.isCorrect) {
+    test.correct++;
+  }
+
+  let nextBtn =
+    document.getElementById(
+      "history-next-btn"
+    );
+
+  if (!nextBtn) {
+
+    nextBtn =
+      document.createElement(
+        "button"
+      );
+
+    nextBtn.id =
+      "history-next-btn";
+
+    nextBtn.innerText =
+      "次へ";
+
+    Object.assign(
+      nextBtn.style,
+      {
+        marginTop: "16px",
+        padding: "10px 28px",
+        fontSize: "16px",
+        borderRadius: "12px",
+        cursor: "pointer",
+        display: "block"
+      }
+    );
+
+    document
+      .querySelector(
+        ".card"
+      )
+      .appendChild(
+        nextBtn
+      );
+  }
+
+  nextBtn.onclick = () => {
+
+    test.index++;
+
+    if (
+      test.index >=
+      test.questions.length
+    ) {
+
+      renderHistoryIchimonResult();
+
+    } else {
+
+      renderHistoryIchimonTestQuestion();
+    }
+  };
+}
+
+// ============================================
+// Firestore に結果保存
+// ============================================
+async function saveHistoryIchimonResult(test) {
+
+  try {
+
+    const uid =
+      currentUser
+        ? currentUser.id
+        : "guest";
+
+    const answersRecord =
+      test.userAnswers.map(a => ({
+
+        question:
+          a.question || "",
+
+        userAnswer:
+          a.userAnswer || [],
+
+        correctAnswer:
+          a.correctAnswer || [],
+
+        explanation:
+          a.explanation || "",
+
+        score:
+          a.score || 0
+      }));
+
+
+    await addDoc(
+      collection(
+        db,
+        "history_results"
+      ),
+      {
+
+        uid,
+
+        type:
+          "日本史H一問一答",
+
+        testType:
+          "history_ichimon",
+
+        score:
+          test.correct,
+
+        totalScore:
+          test.userAnswers.reduce(
+            (sum, a) =>
+              sum + (a?.score || 0),
+            0
+          ),
+
+        totalQuestions:
+          test.questions.length,
+
+        answers:
+          answersRecord,
+
+        createdAt:
+          new Date()
+      }
+    );
+
+    console.log(
+      "日本史H結果を保存しました"
+    );
+
+  } catch (err) {
+
+    console.error(
+      "saveHistoryIchimonResult",
+      err
+    );
+  }
+}
+
+
+
+
 
 
 // ==========================
@@ -3477,13 +5206,35 @@ async function saveKanjiResult(test) {
 }
 
 
+
+
+
+
+
+
     // ===== テストメニュー（雛形） =====
 // ===== テストメニュー（ピンク枠・横一列版） =====
+let schoolMode = "junior";
 function renderTestMenu() {
   document.getElementById('content').innerHTML = `
+
+<div class="school-switch">
+  <button
+    class="school-btn ${schoolMode === 'junior' ? 'active' : ''}"
+    id="switch-junior">
+    中学
+  </button>
+
+  <button
+    class="school-btn ${schoolMode === 'high' ? 'active' : ''}"
+    id="switch-high">
+    高校
+  </button>
+</div>
+
+${schoolMode === "junior" ? `
     <div class="card test-main-card">
       <h2 class="test-title">英語J</h2>
-
       <div class="test-card-row">
         <div class="test-card">
           <h3>速読力測定テスト</h3>
@@ -3568,7 +5319,122 @@ function renderTestMenu() {
   </div>
 </div>
 
-  `;
+  ` : `
+
+<!-- 現代文H -->
+<div class="card test-main-card gendai-card">
+  <h2 class="test-title">現代文H</h2>
+
+  <div class="test-card-row">
+    <div class="test-card">
+      <h3>語彙テスト</h3>
+      <button class="btn-plain btn-primary" id="start-h-goi">
+        テスト
+      </button>
+    </div>
+
+    <div class="test-card">
+      <h3>漢字テスト</h3>
+      <button class="btn-plain btn-primary" id="start-h-kanji">
+        テスト
+      </button>
+    </div>
+
+    <div class="test-card">
+      <h3>慣用句テスト</h3>
+      <button class="btn-plain btn-primary" id="start-h-gendai-q3">
+        テスト
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- 古典H -->
+<div class="card test-main-card koten-card">
+  <h2 class="test-title">古典H</h2>
+
+  <div class="test-card-row">
+    <div class="test-card">
+      <h3>古文単語テスト</h3>
+      <button class="btn-plain btn-primary" id="start-h-kobun">
+        テスト
+      </button>
+    </div>
+
+    <div class="test-card">
+      <h3>古典文法テスト</h3>
+      <button class="btn-plain btn-primary" id="start-h-koten-bunpou">
+        テスト
+      </button>
+    </div>
+
+    <div class="test-card">
+      <h3>文学史テスト</h3>
+      <button class="btn-plain btn-primary" id="start-h-koten-q3">
+        テスト
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- 英語H -->
+<div class="card test-main-card high-english-card">
+  <h2 class="test-title">英語H</h2>
+
+  <div class="test-card-row">
+    <div class="test-card">
+      <h3>英単語テスト</h3>
+      <button class="btn-plain btn-primary" id="start-wordtest">
+        テスト
+      </button>
+    </div>
+
+    <div class="test-card">
+      <h3>英文法テスト</h3>
+      <button class="btn-plain btn-primary" id="start-h-grammar">
+        テスト
+      </button>
+    </div>
+
+    <div class="test-card">
+      <h3>長文読解特訓</h3>
+      <button class="btn-plain btn-primary" id="start-h-reading">
+        特訓
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- 日本史H -->
+<div class="card test-main-card history-card">
+  <h2 class="test-title">日本史H</h2>
+
+  <div class="test-card-row">
+    <div class="test-card">
+      <h3>一問一答テスト</h3>
+      <button class="btn-plain btn-primary" id="start-h-ichimon">
+        テスト
+      </button>
+    </div>
+
+    <div class="test-card">
+      <h3>正誤テスト</h3>
+      <button class="btn-plain btn-primary" id="start-h-seigo">
+        テスト
+      </button>
+    </div>
+
+    <div class="test-card">
+      <h3>整序問題テスト</h3>
+      <button class="btn-plain btn-primary" id="start-h-seijo">
+        テスト
+      </button>
+    </div>
+  </div>
+</div>
+`}
+`;
+
 
   // スタイル追加 
 const styleTag = document.createElement('style');
@@ -3833,10 +5699,183 @@ styleTag.innerHTML = `
   background-color: #b5ecc0;
   transform: translateY(-2px);
 }
+/* 学年切替 */
+
+.school-switch{
+  display:flex;
+  justify-content:center;
+  gap:12px;
+  margin-bottom:25px;
+}
+
+.school-btn{
+  border:none;
+  background:#eee;
+  color:#666;
+  padding:10px 30px;
+  border-radius:999px;
+  font-size:18px;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.school-btn.active{
+  background:#2c3e50;
+  color:white;
+}
+.gendai-card::before,
+.gendai-card::after{
+  content:'';
+  position:absolute;
+  width:0;
+  height:0;
+  border-style:solid;
+  z-index:1;
+}
+
+.gendai-card::before{
+  top:0;
+  left:0;
+  border-width:60px 60px 0 0;
+  border-color:#ffe8e8 transparent transparent transparent;
+}
+
+.gendai-card::after{
+  bottom:0;
+  right:0;
+  border-width:0 0 60px 60px;
+  border-color:transparent transparent #ffe8e8 transparent;
+}
+
+.gendai-card .test-title{
+  color:#f4a6a6;
+}
+
+.gendai-card .test-card{
+  border:2px solid #f4a6a6;
+}
+
+.gendai-card .test-card button{
+  background:#f4a6a6;
+}
+.koten-card::before,
+.koten-card::after{
+  content:'';
+  position:absolute;
+  width:0;
+  height:0;
+  border-style:solid;
+  z-index:1;
+}
+
+.koten-card::before{
+  top:0;
+  left:0;
+  border-width:60px 60px 0 0;
+  border-color:#ffeef6 transparent transparent transparent;
+}
+
+.koten-card::after{
+  bottom:0;
+  right:0;
+  border-width:0 0 60px 60px;
+  border-color:transparent transparent #ffeef6 transparent;
+}
+
+.koten-card .test-title{
+  color:#f5b5d4;
+}
+
+.koten-card .test-card{
+  border:2px solid #f5b5d4;
+}
+
+.koten-card .test-card button{
+  background:#f5b5d4;
+}
+.high-english-card::before,
+.high-english-card::after{
+  content:'';
+  position:absolute;
+  width:0;
+  height:0;
+  border-style:solid;
+  z-index:1;
+}
+
+.high-english-card::before{
+  top:0;
+  left:0;
+  border-width:60px 60px 0 0;
+  border-color:#fff4e5 transparent transparent transparent;
+}
+
+.high-english-card::after{
+  bottom:0;
+  right:0;
+  border-width:0 0 60px 60px;
+  border-color:transparent transparent #fff4e5 transparent;
+}
+
+.high-english-card .test-title{
+  color:#f5c28b;
+}
+
+.high-english-card .test-card{
+  border:2px solid #f5c28b;
+}
+
+.high-english-card .test-card button{
+  background:#f5c28b;
+}
+.history-card::before,
+.history-card::after{
+  content:'';
+  position:absolute;
+  width:0;
+  height:0;
+  border-style:solid;
+  z-index:1;
+}
+
+.history-card::before{
+  top:0;
+  left:0;
+  border-width:60px 60px 0 0;
+  border-color:#f5efff transparent transparent transparent;
+}
+
+.history-card::after{
+  bottom:0;
+  right:0;
+  border-width:0 0 60px 60px;
+  border-color:transparent transparent #f5efff transparent;
+}
+
+.history-card .test-title{
+  color:#c7b0f5;
+}
+
+.history-card .test-card{
+  border:2px solid #c7b0f5;
+}
+
+.history-card .test-card button{
+  background:#c7b0f5;
+}
 
 
 `;
 document.head.appendChild(styleTag);
+document.getElementById('switch-junior')?.addEventListener('click', () => {
+  schoolMode = 'junior';
+  renderTestMenu();
+});
+
+document.getElementById('switch-high')?.addEventListener('click', () => {
+  schoolMode = 'high';
+  renderTestMenu();
+});
 
 
 
@@ -3881,6 +5920,14 @@ if (ichimonBtn) {
     ichimonBtn.addEventListener('click', () => {
         renderIchimonTrainingSetup();
     });
+}
+
+// 日本史H
+const hIchimonBtn = document.getElementById('start-h-ichimon');
+if (hIchimonBtn) {
+  hIchimonBtn.addEventListener('click', () => {
+    renderHighIchimonSetup();
+  });
 }
 }
 

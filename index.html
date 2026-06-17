@@ -3059,7 +3059,6 @@ startHistoryIchimonTest(
 // ============================================
 let currentHistoryIchimonTest = null;
 
-
 // ============================================
 // 問題取得
 // ============================================
@@ -3500,37 +3499,23 @@ function renderHistoryIchimonJudge() {
   }, 1000);
 
   correctArea.innerHTML = `
+  <div>
+    <strong>正解：</strong>
+    ${ua.correctAnswer.join(" / ")}
+  </div>
 
-    <div>
-      正解：
-      ${ua.correctAnswer.join(
-        " / "
-      )}
-    </div>
-
-    <div
-      style="
-        margin-top:16px;
-        color:#333;
-        font-size:16px;
-        font-weight:normal;
-        line-height:1.8;
-        white-space:pre-wrap;
-      "
-    >
-      <strong>
-        解説
-      </strong>
-      <br>
-
-      ${
-        ua.explanation ||
-        "解説はありません"
-      }
-    </div>
-
-  `;
-
+  <div
+    style="
+      margin-top:12px;
+      color:#333;
+      line-height:1.7;
+      white-space:pre-wrap;
+    "
+  >
+    <strong>解説：</strong>
+    ${ua.explanation || "解説はありません"}
+  </div>
+`;
   if (ua.isCorrect) {
     test.correct++;
   }
@@ -3627,7 +3612,7 @@ async function saveHistoryIchimonResult(test) {
     await addDoc(
       collection(
         db,
-        "history_results"
+        "results"
       ),
       {
 
@@ -3673,9 +3658,317 @@ async function saveHistoryIchimonResult(test) {
   }
 }
 
+// ============================================
+// 結果画面
+// ============================================
+function renderHistoryIchimonResult() {
 
+  const area =
+    document.getElementById(
+      "content"
+    );
 
+  const test =
+    currentHistoryIchimonTest;
 
+  saveHistoryIchimonResult(
+    test
+  );
+
+  const totalScore =
+    test.userAnswers.reduce(
+      (sum, a) =>
+        sum + (a?.score || 0),
+      0
+    );
+
+  area.innerHTML = `
+    <div
+      class="card"
+      style="
+        padding:32px;
+        border:none;
+        box-shadow:none;
+        text-align:center;
+      "
+    >
+
+      <h2>結果</h2>
+
+      <div
+        style="
+          font-size:24px;
+          margin-top:20px;
+        "
+      >
+        正解数：
+        ${test.correct}
+        /
+        ${test.questions.length}
+      </div>
+
+      <div
+        style="
+          font-size:24px;
+          margin-top:12px;
+          color:#333;
+        "
+      >
+        スコア：
+        ${totalScore}
+      </div>
+
+      <div
+        style="
+          display:flex;
+          gap:16px;
+          justify-content:center;
+          margin-top:24px;
+          flex-wrap:wrap;
+        "
+      >
+
+        <button
+          id="history-detail"
+          class="btn-primary"
+          style="
+            padding:14px 36px;
+            font-size:18px;
+            border-radius:12px;
+          "
+        >
+          くわしく見る
+        </button>
+
+        <button
+          id="history-restart"
+          class="btn-primary"
+          style="
+            padding:14px 36px;
+            font-size:18px;
+            border-radius:12px;
+          "
+        >
+          もう一度
+        </button>
+
+        <button
+          id="history-home"
+          class="btn-primary"
+          style="
+            padding:14px 36px;
+            font-size:18px;
+            border-radius:12px;
+          "
+        >
+          ホームに戻る
+        </button>
+
+      </div>
+
+    </div>
+  `;
+
+  // BNP加算
+  try {
+
+    if (
+      typeof addBnp ===
+      "function"
+    ) {
+
+      addBnp(totalScore);
+
+      console.log(
+        "BNP加算",
+        totalScore
+      );
+    }
+
+  } catch (e) {
+
+    console.warn(e);
+  }
+
+  document
+    .getElementById(
+      "history-detail"
+    )
+    .addEventListener(
+      "click",
+      renderHistoryIchimonDetail
+    );
+
+  document
+    .getElementById(
+      "history-restart"
+    )
+    .addEventListener(
+      "click",
+      () => {
+
+        renderHighIchimonSetup();
+      }
+    );
+
+  document
+    .getElementById(
+      "history-home"
+    )
+    .addEventListener(
+      "click",
+      () => {
+
+        renderHome();
+      }
+    );
+}
+
+// ============================================
+// 詳細画面
+// ============================================
+function renderHistoryIchimonDetail() {
+
+  const area =
+    document.getElementById(
+      "content"
+    );
+
+  const test =
+    currentHistoryIchimonTest;
+
+  let cards = "";
+
+  test.questions.forEach(
+    (q, i) => {
+
+      const ua =
+        test.userAnswers[i];
+
+      const borderColor =
+        ua.isCorrect
+          ? "#1f8f3a"
+          : "#d32f2f";
+
+      cards += `
+        <div
+          style="
+            background:#fff;
+            border:1px solid #ddd;
+            border-left:8px solid ${borderColor};
+            border-radius:8px;
+            padding:12px 16px;
+            margin-bottom:12px;
+          "
+        >
+
+          <div
+            style="
+              font-size:13px;
+              color:#666;
+              font-weight:bold;
+              margin-bottom:10px;
+            "
+          >
+            第${i + 1}問　
+            ${
+              ua.isCorrect
+                ? "⭕ 正解"
+                : "❌ 不正解"
+            }
+          </div>
+
+          <div style="margin-bottom:6px;">
+            <strong>問題：</strong>
+            ${q.question}
+          </div>
+
+          <div style="margin-bottom:6px;">
+            <strong>あなたの解答：</strong>
+            ${
+              ua.userAnswer?.join(" / ")
+              || "-"
+            }
+          </div>
+
+          <div style="margin-bottom:6px;">
+            <strong>正解：</strong>
+            ${
+              ua.correctAnswer?.join(" / ")
+              || "-"
+            }
+          </div>
+
+          <div style="margin-bottom:6px;">
+            <strong>解説：</strong>
+            ${
+              ua.explanation ||
+              "解説なし"
+            }
+          </div>
+
+          <div
+            style="
+              font-size:12px;
+              color:#666;
+              margin-top:8px;
+            "
+          >
+            スコア：${ua.score}点
+          </div>
+
+        </div>
+      `;
+    }
+  );
+
+  area.innerHTML = `
+    <div
+      class="card"
+      style="
+        padding:24px;
+      "
+    >
+
+      <h2 style="margin-bottom:16px;">
+        くわしく見る
+      </h2>
+
+      ${cards}
+
+      <div
+        style="
+          margin-top:20px;
+          text-align:center;
+        "
+      >
+
+        <button
+          id="history-detail-back"
+          class="btn-primary"
+          style="
+            padding:14px 36px;
+            font-size:18px;
+            border-radius:12px;
+          "
+        >
+          結果に戻る
+        </button>
+
+      </div>
+
+    </div>
+  `;
+
+  document
+    .getElementById(
+      "history-detail-back"
+    )
+    .addEventListener(
+      "click",
+      renderHistoryIchimonResult
+    );
+}
 
 
 // ==========================
@@ -7331,6 +7624,31 @@ function renderHistory() {
       </div>
 
 
+      <!-- 日本史Hの大きなカード -->
+      <div class="card" style="border:2px solid #bbb; padding:16px 16px; margin-top:16px;">
+        <h3 style="margin:2px 0; font-size:32px; color:#c7b0f5; font-weight:900;">日本史H</h3>
+
+        <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:12px;">
+
+          <div class="small-card" style="
+            width:250px;
+            height:76px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            text-align:center;
+            border:2px solid #c7b0f5;
+            border-radius:12px;
+            cursor:pointer;
+            font-size:16px;
+            font-weight:bold;"
+            data-type="日本史H一問一答">
+            一問一答
+          </div>
+
+        </div>
+      </div>
+
       <!-- 選択したテスト結果表示エリア -->
       <div id="history-list" style="margin-top:16px;"></div>
     </div>
@@ -8852,8 +9170,8 @@ function renderGrammarResult(score, elapsedSec, answersRecord){
 // ホーム画面描画
 function renderHome() {
   const today = new Date();
-  const privateExamDate = new Date('2026-02-10');
-  const publicExamDate = new Date('2026-03-11');
+  const privateExamDate = new Date('2027-02-10');
+  const publicExamDate = new Date('2027-01-16');
 
   const privateDiff = Math.ceil((privateExamDate - today) / (1000 * 60 * 60 * 24));
   const publicDiff = Math.ceil((publicExamDate - today) / (1000 * 60 * 60 * 24));
@@ -8868,15 +9186,15 @@ function renderHome() {
 
       <div class="exam-side">
         <div class="exam-card private-exam">
-          <h3>私立入試まで</h3>
+          <h3>私立高校入試まで</h3>
           <div class="exam-days">${privateDiff}日</div>
-          <div class="exam-date">（2026年2月10日 火）</div>
+          <div class="exam-date">（2027年2月10日 水）</div>
         </div>
 
         <div class="exam-card public-exam">
-          <h3>公立入試まで</h3>
+          <h3>共通テストまで</h3>
           <div class="exam-days">${publicDiff}日</div>
-          <div class="exam-date">（2026年3月11日 水）</div>
+          <div class="exam-date">（2027年1月16日 土）</div>
         </div>
       </div>
     </div>
